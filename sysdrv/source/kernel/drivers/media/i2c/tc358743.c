@@ -33,6 +33,9 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-fwnode.h>
 #include <media/i2c/tc358743.h>
+#include <sound/soc.h>
+#include <sound/pcm.h>
+#include <sound/pcm_params.h>
 
 #include "tc358743_regs.h"
 
@@ -1055,6 +1058,134 @@ static void tc358743_hdmi_audio_int_handler(struct v4l2_subdev *sd,
 	tc358743_s_ctrl_audio_sampling_rate(sd);
 	tc358743_s_ctrl_audio_present(sd);
 }
+
+/* --------------- ASoC Codec --------------- */
+
+#if IS_ENABLED(CONFIG_SND_SOC)
+
+static int tc358743_dai_startup(struct snd_pcm_substream *substream,
+				struct snd_soc_dai *dai)
+{
+	struct tc358743_state *state = snd_soc_component_get_drvdata(dai->component);
+	struct v4l2_subdev *sd = &state->sd;
+
+	v4l2_dbg(1, debug, sd, "%s: Audio DAI startup\n", __func__);
+
+	/* Ensure HDMI audio is configured */
+	tc358743_set_hdmi_audio(sd);
+
+	return 0;
+}
+
+static int tc358743_dai_hw_params(struct snd_pcm_substream *substream,
+				  struct snd_pcm_hw_params *params,
+				  struct snd_soc_dai *dai)
+{
+	struct tc358743_state *state = snd_soc_component_get_drvdata(dai->component);
+	struct v4l2_subdev *sd = &state->sd;
+	unsigned int rate = params_rate(params);
+	unsigned int channels = params_channels(params);
+	unsigned int format = params_format(params);
+
+	v4l2_dbg(1, debug, sd, "%s: rate=%u, channels=%u, format=%u\n",
+		 __func__, rate, channels, format);
+
+	/* Validate parameters against current HDMI audio stream */
+	if (!audio_present(sd)) {
+		v4l2_err(sd, "No HDMI audio present\n");
+		return -ENODEV;
+	}
+
+	/* The TC358743 outputs I2S audio based on the incoming HDMI stream,
+	 * so we don't need to configure sample rate/format - just validate
+	 * that the requested parameters match what's available.
+	 */
+	unsigned int hdmi_rate = get_audio_sampling_rate(sd);
+	if (hdmi_rate && rate != hdmi_rate) {
+		v4l2_warn(sd, "Requested rate %u doesn't match HDMI rate %u\n",
+			  rate, hdmi_rate);
+	}
+
+	return 0;
+}
+
+static void tc358743_dai_shutdown(struct snd_pcm_substream *substream,
+				  struct snd_soc_dai *dai)
+{
+	struct tc358743_state *state = snd_soc_component_get_drvdata(dai->component);
+	struct v4l2_subdev *sd = &state->sd;
+
+	v4l2_dbg(1, debug, sd, "%s: Audio DAI shutdown\n", __func__);
+}
+
+static const struct snd_soc_dai_ops tc358743_dai_ops = {
+	.startup = tc358743_dai_startup,
+	.hw_params = tc358743_dai_hw_params,
+	.shutdown = tc358743_dai_shutdown,
+};
+
+#define TC358743_RATES SNDRV_PCM_RATE_32000_192000
+#define TC358743_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | \
+			  SNDRV_PCM_FMTBIT_S20_3LE | \
+			  SNDRV_PCM_FMTBIT_S24_LE | \
+			  SNDRV_PCM_FMTBIT_S32_LE)
+
+static struct snd_soc_dai_driver tc358743_dai_driver = {
+	.name = "tc358743-audio",
+	.capture = {
+		.stream_name = "Capture",
+		.channels_min = 1,
+		.channels_max = 8,
+		.rates = TC358743_RATES,
+		.formats = TC358743_FORMATS,
+	},
+	.ops = &tc358743_dai_ops,
+};
+
+static const struct snd_soc_dapm_widget tc358743_dapm_widgets[] = {
+	SND_SOC_DAPM_INPUT("HDMI-In"),
+};
+
+static const struct snd_soc_dapm_route tc358743_dapm_routes[] = {
+	{ "Capture", NULL, "HDMI-In" },
+};
+
+static const struct snd_soc_component_driver tc358743_component_driver = {
+	.dapm_widgets = tc358743_dapm_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(tc358743_dapm_widgets),
+	.dapm_routes = tc358743_dapm_routes,
+	.num_dapm_routes = ARRAY_SIZE(tc358743_dapm_routes),
+	.idle_bias_on = 1,
+	.use_pmdown_time = 1,
+	.endianness = 1,
+	.non_legacy_dai_naming = 1,
+};
+
+static int tc358743_audio_codec_register(struct tc358743_state *state)
+{
+	struct device *dev = &state->i2c_client->dev;
+	int ret;
+
+	ret = devm_snd_soc_register_component(dev, &tc358743_component_driver,
+					      &tc358743_dai_driver, 1);
+	if (ret < 0) {
+		dev_err(dev, "Failed to register ASoC component: %d\n", ret);
+		return ret;
+	}
+
+	dev_info(dev, "TC358743 ASoC codec registered\n");
+	return 0;
+}
+
+#else
+
+static int tc358743_audio_codec_register(struct tc358743_state *state)
+{
+	/* ASoC support not enabled */
+	return 0;
+}
+
+#endif /* CONFIG_SND_SOC */
 
 static void tc358743_csi_err_int_handler(struct v4l2_subdev *sd, bool *handled)
 {
@@ -2167,6 +2298,13 @@ static int tc358743_probe(struct i2c_client *client)
 	err = v4l2_ctrl_handler_setup(sd->ctrl_handler);
 	if (err)
 		goto err_work_queues;
+
+	/* Register ASoC codec for audio support */
+	err = tc358743_audio_codec_register(state);
+	if (err) {
+		v4l2_err(sd, "Failed to register audio codec: %d\n", err);
+		/* Continue without audio support - not a fatal error */
+	}
 
 	v4l2_info(sd, "%s found @ 0x%x (%s)\n", client->name,
 		  client->addr << 1, client->adapter->name);

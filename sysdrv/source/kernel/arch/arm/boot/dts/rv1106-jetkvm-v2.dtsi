@@ -23,6 +23,20 @@
 		};
 	};
 
+	tc358743_sound: tc358743-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "tc358743";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&tc358743_codec>;
+		simple-audio-card,frame-master = <&tc358743_codec>;
+		simple-audio-card,cpu {
+			sound-dai = <&i2s0_8ch>;
+		};
+		tc358743_codec: simple-audio-card,codec {
+			sound-dai = <&tc358743>;
+		};
+	};
+
 	vcc_1v8: vcc-1v8 {
 		compatible = "regulator-fixed";
 		regulator-name = "vcc_1v8";
@@ -121,6 +135,7 @@
 		clocks = <&hdmi_osc>;
 		clock-names = "refclk";
 		reset-gpios = <&gpio3 RK_PC5 GPIO_ACTIVE_LOW>;
+		#sound-dai-cells = <0>;
 		rockchip,camera-module-index = <0>;
 		rockchip,camera-module-facing = "back";
 		rockchip,camera-module-name = "TC358743XBG";
