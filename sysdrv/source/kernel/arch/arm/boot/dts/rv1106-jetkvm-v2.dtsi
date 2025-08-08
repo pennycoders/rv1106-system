@@ -10,7 +10,7 @@
 		bootargs = "earlycon=uart8250,mmio32,0xff4c0000 console=ttyFIQ0 rootwait snd_soc_core.prealloc_buffer_size_kbytes=16 coherent_pool=0";
 	};
 
-	/* Dummy codec as a sink for TC358743 I²S (the bridge provides BCLK/LRCLK). */
+	/* Dummy codec as a sink for TC358743 I²S (the bridge provides BCLK/LRCK). */
 	dummy_codec: dummy-codec {
 		compatible = "rockchip,dummy-codec";
 		#sound-dai-cells = <0>;
@@ -114,7 +114,6 @@
 				remote-endpoint = <&hdmiin_out0>;
 				data-lanes = <1 2>;
 			};
-
 		};
 
 		port@1 {
@@ -177,16 +176,8 @@
 	rockchip,trcm-sync-rx-only;
 
 	pinctrl-names = "default";
-	/* Use the RX pin groups + SDI0.  If your BSP uses different labels,
-	 * swap them accordingly (often i2s0m0_*).
-	 *
-	 * NOTE: We intentionally do NOT request MCLK here to avoid
-	 * driving it out if the bridge provides its own OSCK. If you need
-	 * MCLK from RV1106 instead, add your SoC's MCLK group below.
-	 */
-	pinctrl-0 = <&i2s0m0_sclk_rx
-		     &i2s0m0_lrck_rx
-		     &i2s0m0_sdi0>;
+	/* Your pinctrl only provides this bundled group. */
+	pinctrl-0 = <&i2s0_pins>;
 };
 
 &mipi0_csi2 {
