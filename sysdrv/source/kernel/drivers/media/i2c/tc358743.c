@@ -32,10 +32,6 @@
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-event.h>
 #include <media/v4l2-fwnode.h>
-#include <sound/core.h>
-#include <sound/pcm.h>
-#include <sound/pcm_params.h>
-#include <sound/soc.h>
 #include <media/i2c/tc358743.h>
 
 #include "tc358743_regs.h"
@@ -1887,70 +1883,6 @@ static const struct v4l2_ctrl_config tc358743_ctrl_audio_present = {
 	.flags = V4L2_CTRL_FLAG_READ_ONLY,
 };
 
-/* --------------- AUDIO / ASoC --------------- */
-
-static int tc358743_pcm_startup(struct snd_pcm_substream *substream,
-				 struct snd_soc_dai *dai)
-{
-	struct v4l2_subdev *sd = snd_soc_dai_get_drvdata(dai);
-
-	if (no_signal(sd)) {
-		dev_err(dai->dev, "No HDMI signal detected\n");
-		return -ENOLINK;
-	}
-
-	if (!audio_present(sd)) {
-		dev_err(dai->dev, "No HDMI audio detected\n");
-		return -ENODATA;
-	}
-
-	return 0;
-}
-
-static const struct snd_soc_dai_ops tc358743_dai_ops = {
-	.startup = tc358743_pcm_startup,
-};
-
-static struct snd_soc_dai_driver tc358743_audio_dai = {
-	.name = "tc358743",
-	.capture = {
-		.stream_name = "Capture",
-		.channels_min = 2,
-		.channels_max = 8,
-		.rates = SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
-			 SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_88200 |
-			 SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_176400 |
-			 SNDRV_PCM_RATE_192000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
-	},
-	.ops = &tc358743_dai_ops,
-};
-
-static int tc358743_codec_probe(struct snd_soc_component *component)
-{
-	struct tc358743_state *state = dev_get_drvdata(component->dev);
-	struct snd_soc_dai *dai;
-
-	/* Set the subdev as driver data for the DAI */
-	list_for_each_entry(dai, &component->dai_list, list) {
-		snd_soc_dai_set_drvdata(dai, &state->sd);
-	}
-
-	return 0;
-}
-
-static void tc358743_codec_remove(struct snd_soc_component *component)
-{
-}
-
-static struct snd_soc_component_driver tc358743_codec_driver = {
-	.probe			= tc358743_codec_probe,
-	.remove			= tc358743_codec_remove,
-	.idle_bias_on		= 1,
-	.use_pmdown_time	= 1,
-	.endianness		= 1,
-};
-
 /* --------------- PROBE / REMOVE --------------- */
 
 #ifdef CONFIG_OF
@@ -2235,15 +2167,6 @@ static int tc358743_probe(struct i2c_client *client)
 	err = v4l2_ctrl_handler_setup(sd->ctrl_handler);
 	if (err)
 		goto err_work_queues;
-
-	/* Register audio DAI */
-	err = devm_snd_soc_register_component(&client->dev,
-					      &tc358743_codec_driver,
-					      &tc358743_audio_dai, 1);
-	if (err) {
-		dev_err(&client->dev, "register audio codec failed\n");
-		goto err_work_queues;
-	}
 
 	v4l2_info(sd, "%s found @ 0x%x (%s)\n", client->name,
 		  client->addr << 1, client->adapter->name);
