@@ -2307,6 +2307,14 @@ static struct snd_soc_dai_driver tc35874x_audio_dai = {
 
 static int tc35874x_codec_probe(struct snd_soc_component *component)
 {
+	struct tc35874x_state *state = dev_get_drvdata(component->dev);
+	struct snd_soc_dai *dai;
+
+	/* Set the subdev as driver data for the DAI */
+	list_for_each_entry(dai, &component->dai_list, list) {
+		snd_soc_dai_set_drvdata(dai, &state->sd);
+	}
+
 	return 0;
 }
 
