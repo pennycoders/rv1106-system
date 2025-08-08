@@ -156,6 +156,8 @@
 &i2s0_8ch {
 	#sound-dai-cells = <0>;
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2s0_pins>;
 };
 
 
