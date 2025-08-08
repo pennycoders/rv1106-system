@@ -157,7 +157,23 @@
 	#sound-dai-cells = <0>;
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&i2s0_pins>;
+	pinctrl-0 = <&i2s0_jetkvm_pins>;
+};
+
+&pinctrl {
+	i2s0_jetkvm {
+		i2s0_jetkvm_pins: i2s0-jetkvm-pins {
+			rockchip,pins =
+				/* i2s0_lrck */
+				<2 RK_PA1 2 &pcfg_pull_none>,
+				/* i2s0_sclk */
+				<2 RK_PA0 2 &pcfg_pull_none>,
+				/* i2s0_sdi0 */
+				<2 RK_PA5 2 &pcfg_pull_none>,
+				/* i2s0_sdo0 */
+				<2 RK_PA4 2 &pcfg_pull_none>;
+		};
+	};
 };
 
 
