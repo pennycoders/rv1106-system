@@ -23,6 +23,21 @@
 		};
 	};
 
+	hdmi_sound: hdmi-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "tc358743-hdmi";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,mclk-fs = <256>;
+		simple-audio-card,cpu {
+			sound-dai = <&i2s1_2ch>;
+		};
+		simple-audio-card,codec {
+			sound-dai = <&tc358743>;
+		};
+	};
+
+
+
 	vcc_1v8: vcc-1v8 {
 		compatible = "regulator-fixed";
 		regulator-name = "vcc_1v8";
@@ -125,6 +140,7 @@
 		rockchip,camera-module-facing = "back";
 		rockchip,camera-module-name = "TC358743XBG";
 		rockchip,camera-module-lens-name = "NC";
+		#sound-dai-cells = <0>;
 		port {
 			hdmiin_out0: endpoint {
 				remote-endpoint = <&csi_dphy_input0>;
@@ -138,6 +154,11 @@
 };
 
 &i2s0_8ch {
+	#sound-dai-cells = <0>;
+	status = "okay";
+};
+
+&i2s1_2ch {
 	#sound-dai-cells = <0>;
 	status = "okay";
 };
