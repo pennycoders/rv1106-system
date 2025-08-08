@@ -48,10 +48,6 @@
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-event.h>
 #include <media/v4l2-fwnode.h>
-#include <sound/core.h>
-#include <sound/pcm.h>
-#include <sound/pcm_params.h>
-#include <sound/soc.h>
 #include <media/tc35874x.h>
 
 #include "tc35874x_regs.h"
@@ -2266,71 +2262,6 @@ static inline int tc35874x_probe_of(struct tc35874x_state *state)
 }
 #endif
 
-/* --------------- AUDIO CODEC --------------- */
-
-static int tc35874x_pcm_startup(struct snd_pcm_substream *substream,
-				 struct snd_soc_dai *dai)
-{
-	struct v4l2_subdev *sd = snd_soc_dai_get_drvdata(dai);
-
-	if (no_signal(sd)) {
-		dev_err(dai->dev, "No HDMI signal detected\n");
-		return -ENOLINK;
-	}
-
-	if (!audio_present(sd)) {
-		dev_err(dai->dev, "No HDMI audio detected\n");
-		return -ENODATA;
-	}
-
-	return 0;
-}
-
-static const struct snd_soc_dai_ops tc35874x_dai_ops = {
-	.startup = tc35874x_pcm_startup,
-};
-
-static struct snd_soc_dai_driver tc35874x_audio_dai = {
-	.name = "tc35874x",
-	.capture = {
-		.stream_name = "Capture",
-		.channels_min = 2,
-		.channels_max = 8,
-		.rates = SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
-			 SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_88200 |
-			 SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_176400 |
-			 SNDRV_PCM_RATE_192000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
-	},
-	.ops = &tc35874x_dai_ops,
-};
-
-static int tc35874x_codec_probe(struct snd_soc_component *component)
-{
-	struct tc35874x_state *state = dev_get_drvdata(component->dev);
-	struct snd_soc_dai *dai;
-
-	/* Set the subdev as driver data for the DAI */
-	list_for_each_entry(dai, &component->dai_list, list) {
-		snd_soc_dai_set_drvdata(dai, &state->sd);
-	}
-
-	return 0;
-}
-
-static void tc35874x_codec_remove(struct snd_soc_component *component)
-{
-}
-
-static struct snd_soc_component_driver tc35874x_codec_driver = {
-	.probe			= tc35874x_codec_probe,
-	.remove			= tc35874x_codec_remove,
-	.idle_bias_on		= 1,
-	.use_pmdown_time	= 1,
-	.endianness		= 1,
-	.non_legacy_dai_naming	= 1,
-};
-
 static int tc35874x_probe(struct i2c_client *client,
 			  const struct i2c_device_id *id)
 {
@@ -2460,18 +2391,6 @@ static int tc35874x_probe(struct i2c_client *client,
 	snprintf(sd->name, sizeof(sd->name), "m%02d_%s_%s %s",
 		 state->module_index, facing,
 		 TC35874X_NAME, dev_name(sd->dev));
-
-	/* Register audio DAI */
-	err = devm_snd_soc_register_component(&client->dev,
-					      &tc35874x_codec_driver,
-					      &tc35874x_audio_dai, 1);
-	if (err) {
-		dev_err(&client->dev, "register audio codec failed\n");
-		goto err_hdl;
-	}
-	dev_set_drvdata(&client->dev, state);
-	v4l_info(client, "registered audio codec\n");
-
 	err = v4l2_async_register_subdev(sd);
 	if (err < 0)
 		goto err_hdl;

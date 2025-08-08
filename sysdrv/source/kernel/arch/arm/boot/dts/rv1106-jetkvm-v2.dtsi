@@ -130,7 +130,7 @@
 	pinctrl-0 = <&i2c4m2_xfer>;
 
 	tc358743: tc358743@0f {
-		compatible = "toshiba,tc35874x";
+		compatible = "toshiba,tc358743";
 		status = "okay";
 		reg = <0x0f>;
 		clocks = <&hdmi_osc>;
