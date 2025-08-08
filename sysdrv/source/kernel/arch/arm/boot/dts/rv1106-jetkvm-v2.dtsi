@@ -10,18 +10,18 @@
 		bootargs = "earlycon=uart8250,mmio32,0xff4c0000 console=ttyFIQ0 rootwait snd_soc_core.prealloc_buffer_size_kbytes=16 coherent_pool=0";
 	};
 
-	acodec_sound: acodec-sound {
-		compatible = "simple-audio-card";
-		simple-audio-card,name = "rv-acodec";
-		simple-audio-card,format = "i2s";
-		simple-audio-card,mclk-fs = <256>;
-		simple-audio-card,cpu {
-			sound-dai = <&i2s0_8ch>;
-		};
-		simple-audio-card,codec {
-			sound-dai = <&acodec>;
-		};
-	};
+	// acodec_sound: acodec-sound {
+	//	compatible = "simple-audio-card";
+	//	simple-audio-card,name = "rv-acodec";
+	//	simple-audio-card,format = "i2s";
+	//	simple-audio-card,mclk-fs = <256>;
+	//	simple-audio-card,cpu {
+	//		sound-dai = <&i2s0_8ch>;
+	//	};
+	//	simple-audio-card,codec {
+	//		sound-dai = <&acodec>;
+	//	};
+	//};
 
 	hdmi_sound: hdmi-sound {
 		compatible = "simple-audio-card";
