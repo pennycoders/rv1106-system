@@ -10,7 +10,7 @@
 		bootargs = "earlycon=uart8250,mmio32,0xff4c0000 console=ttyFIQ0 rootwait snd_soc_core.prealloc_buffer_size_kbytes=16 coherent_pool=0";
 	};
 
-	/* Fixed 27 MHz clock fed into TC358743 */
+	/* 27 MHz ref clock for TC358743 */
 	hdmi_osc: hdmi-osc {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
@@ -18,7 +18,7 @@
 		clock-frequency = <27000000>;
 	};
 
-	/* Always-on rails used by SARADC and other bits */
+	/* Always-on rails */
 	vcc_1v8: vcc-1v8 {
 		compatible = "regulator-fixed";
 		regulator-name = "vcc_1v8";
@@ -37,7 +37,7 @@
 		regulator-boot-on;
 	};
 
-	/* CPU core PWM regulator */
+	/* CPU PWM regulator */
 	vdd_arm: vdd-arm {
 		compatible = "pwm-regulator";
 		regulator-name = "vdd_arm";
@@ -50,7 +50,7 @@
 		regulator-settling-time-up-us = <250>;
 	};
 
-	/* Simple audio card to capture HDMI-IN I²S on I2S0 */
+	/* Dummy codec sink + simple-card to capture I²S from TC358743 */
 	dummy_codec: dummy-codec {
 		compatible = "rockchip,dummy-codec";
 		#sound-dai-cells = <0>;
@@ -60,7 +60,6 @@
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "tc358743-hdmi";
 		simple-audio-card,format = "i2s";
-		/* TC358743 is master for BCLK/LRCLK */
 		simple-audio-card,bitclock-master = <&dai_codec>;
 		simple-audio-card,frame-master    = <&dai_codec>;
 		simple-audio-card,mclk-fs = <256>;
@@ -78,27 +77,25 @@
 };
 
 /* Supplies */
-&cpu0 {
-	cpu-supply = <&vdd_arm>;
-}
+&cpu0 { cpu-supply = <&vdd_arm>; };
 
 &saradc {
 	status = "okay";
 	vref-supply = <&vcc_1v8>;
-}
+};
 
-&tsadc { status = "okay"; }
-&crypto { status = "okay"; }
+&tsadc { status = "okay"; };
+&crypto { status = "okay"; };
 
-/* On-board analog codec (speaker amp GPIO kept) */
+/* Analog codec kept enabled */
 &acodec {
 	#sound-dai-cells = <0>;
 	pa-ctl-gpios = <&gpio1 RK_PA1 GPIO_ACTIVE_HIGH>;
 	status = "okay";
-}
+};
 
-/* MIPI/CSI plumbing stays enabled */
-&csi2_dphy_hw { status = "okay"; }
+/* CSI/MIPI path */
+&csi2_dphy_hw { status = "okay"; };
 
 &csi2_dphy0 {
 	status = "okay";
@@ -115,8 +112,7 @@
 			csi_dphy_input0: endpoint@0 {
 				reg = <0>;
 				remote-endpoint = <&hdmiin_out0>;
-				/* Use 2 data lanes on SoC side; set to <1 2 3 4> if your board is 4-lane */
-				data-lanes = <1 2>;
+				data-lanes = <1 2>; /* set to <1 2 3 4> if you wire 4 lanes to SoC */
 			};
 		};
 
@@ -164,7 +160,7 @@
 	};
 };
 
-&rkcif { status = "okay"; }
+&rkcif { status = "okay"; };
 
 &rkcif_mipi_lvds {
 	status = "okay";
@@ -178,7 +174,7 @@
 	};
 };
 
-/* TC358743 on I2C4, with 27MHz refclk and reset GPIO */
+/* TC358743 bridge on I2C4 */
 &i2c4 {
 	status = "okay";
 	clock-frequency = <400000>;
@@ -213,21 +209,17 @@
 	};
 };
 
-/* I2S0 in RX-clk mode; only request RX pins + SDI0 */
+/* I2S0 in RX clocking mode (BCLK/LRCLK from TC358743) */
 &i2s0_8ch {
 	#sound-dai-cells = <0>;
 	status = "okay";
-
-	/* Use RX clocks (BCLK/LRCK from TC358743) for both RX and TX paths */
 	rockchip,trcm-sync-rx-only;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2s0m0_sclk_rx &i2s0m0_lrck_rx &i2s0m0_sdi0>;
 };
 
-/* ---------------------------------------------------------------------- */
-/* Provide the I2S0 RX pin labels so pinctrl references resolve.          */
-/* ---------------------------------------------------------------------- */
+/* Provide missing I2S0 RX pin labels */
 &pinctrl {
 	i2s0 {
 		/omit-if-no-ref/
@@ -244,7 +236,7 @@
 		};
 		/omit-if-no-ref/
 		i2s0m0_mclk: i2s0m0-mclk {
-			rockchip,pins = <2 RK_PA2 2 &pcfg_pull_none>; /* I2S0_MCLK (optional) */
+			rockchip,pins = <2 RK_PA2 2 &pcfg_pull_none>; /* optional MCLK */
 		};
 	};
-}
+};
