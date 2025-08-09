@@ -159,16 +159,19 @@
 };
 
 &i2s0_8ch {
-	#sound-dai-cells = <0>;
-	status = "okay";
+    #sound-dai-cells = <0>;
+    status = "okay";
 
-	/* Use RX clocks (BCLK/LRCK from TC358743) for both RX and TX paths. */
-	rockchip,trcm-sync-rx-only;
+    /* Use external RX clocks (BCLK/LRCK) from the TC358743 */
+    rockchip,clk-trcm = <1>;   /* 0=TX, 1=RX, 2=TXRX on some BSPs */
 
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2s0m0_sclk_rx
-		     &i2s0m0_lrck_rx
-		     &i2s0m0_sdi0>;
+    pinctrl-names = "default";
+    pinctrl-0 = <&i2s0m0_sclk_rx &i2s0m0_lrck_rx &i2s0m0_sdi0>;
+
+    /* Optional but helps some BSPs: program a sane internal MCLK for math */
+    assigned-clocks = <&cru SCLK_I2S0_8CH>;
+    assigned-clock-parents = <&cru PLL_GPLL>;   /* parent may differ */
+    assigned-clock-rates = <12288000>;          /* 48k * 256 */
 };
 
 &mipi0_csi2 {
