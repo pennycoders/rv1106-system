@@ -16,57 +16,23 @@
 		simple-audio-card,name = "tc358743-hdmi";
 		simple-audio-card,format = "i2s";
 
-		/* TC358743 provides BCLK/LRCK (codec is master) */
+		/* TC358743 drives BCLK/LRCK (codec is master) */
 		simple-audio-card,bitclock-master = <&dai_codec>;
 		simple-audio-card,frame-master    = <&dai_codec>;
-		/* Usually 256 * fs; harmless if unused */
+		/* Typical 256 * fs MCLK from the bridge (harmless if unused) */
 		simple-audio-card,mclk-fs = <256>;
 
 		simple-audio-card,cpu {
 			sound-dai = <&i2s0_8ch>;
+			/* stereo capture with 32-bit slots is common */
+			dai-tdm-slot-num = <2>;
+			dai-tdm-slot-width = <32>;
 		};
 
 		dai_codec: simple-audio-card,codec {
-			/* Use the bridge's own DAI */
+			/* use the bridge's own DAI */
 			sound-dai = <&tc358743>;
 		};
-	};
-
-	vcc_1v8: vcc-1v8 {
-		compatible = "regulator-fixed";
-		regulator-name = "vcc_1v8";
-		regulator-always-on;
-		regulator-boot-on;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-	};
-
-	vcc_3v3: vcc-3v3 {
-		compatible = "regulator-fixed";
-		regulator-name = "vcc_3v3";
-		regulator-always-on;
-		regulator-boot-on;
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-	};
-
-	vdd_arm: vdd-arm {
-		compatible = "pwm-regulator";
-		pwms = <&pwm0 0 5000 1>;
-		regulator-name = "vdd_arm";
-		regulator-min-microvolt = <724000>;
-		regulator-max-microvolt = <1078000>;
-		regulator-init-microvolt = <950000>;
-		regulator-always-on;
-		regulator-boot-on;
-		regulator-settling-time-up-us = <250>;
-	};
-
-	hdmi_osc: hdmi-osc {
-		compatible = "fixed-clock";
-		clock-output-names = "hdmi-osc";
-		clock-frequency = <27000000>;
-		#clock-cells = <0>;
 	};
 };
 
@@ -99,7 +65,7 @@
 			csi_dphy_input0: endpoint@0 {
 				reg = <0>;
 				remote-endpoint = <&hdmiin_out0>;
-				/* DPHY uses lanes 1..2 on the SoC side */
+				/* SoC D-PHY lane mapping in use */
 				data-lanes = <1 2>;
 			};
 		};
@@ -139,7 +105,7 @@
 		rockchip,camera-module-name = "TC358743XBG";
 		rockchip,camera-module-lens-name = "NC";
 
-		/* Expose an ALSA DAI from the bridge */
+		/* expose an ALSA DAI from the bridge */
 		#sound-dai-cells = <0>;
 
 		port {
@@ -157,17 +123,12 @@
 	#sound-dai-cells = <0>;
 	status = "okay";
 
-	/* Use BCLK/LRCK from the bridge (RX clocks) */
-	rockchip,clk-trcm = <1>;
+	/* Use RX clocks (BCLK/LRCK from the bridge) for both paths */
 	rockchip,trcm-sync-rx-only;
 
 	pinctrl-names = "default";
-	pinctrl-0 = <&i2s0m0_sclk_rx &i2s0m0_lrck_rx &i2s0m0_sdi0>;
-
-	/* Keep an internal rate for math; do not drive MCLK out */
-	assigned-clocks = <&cru SCLK_I2S0_8CH>;
-	assigned-clock-parents = <&cru PLL_GPLL>;
-	assigned-clock-rates = <12288000>;
+	/* Use your existing grouped pinmux from rv1106-pinctrl.dtsi */
+	pinctrl-0 = <&i2s0_pins>;
 };
 
 &mipi0_csi2 {
@@ -230,24 +191,4 @@
 	status = "okay";
 };
 
-/* Extra I2S0 RX pin labels so the phandles resolve */
-&pinctrl {
-	i2s0_fix: i2s0-fix {
-		/omit-if-no-ref/
-		i2s0m0_sclk_rx: i2s0m0-sclk-rx {
-			rockchip,pins = <2 RK_PA0 2 &pcfg_pull_none>;
-		};
-		/omit-if-no-ref/
-		i2s0m0_lrck_rx: i2s0m0-lrck-rx {
-			rockchip,pins = <2 RK_PA1 2 &pcfg_pull_none>;
-		};
-		/omit-if-no-ref/
-		i2s0m0_sdi0: i2s0m0-sdi0 {
-			rockchip,pins = <2 RK_PA5 2 &pcfg_pull_none>;
-		};
-		/omit-if-no-ref/
-		i2s0m0_mclk: i2s0m0-mclk {
-			rockchip,pins = <2 RK_PA2 2 &pcfg_pull_none>;
-		};
-	};
-};
+/* Regulators and hdmi_osc live in rv1106-amp.dtsi; keep them there */
