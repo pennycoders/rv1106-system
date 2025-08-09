@@ -10,26 +10,24 @@
 		bootargs = "earlycon=uart8250,mmio32,0xff4c0000 console=ttyFIQ0 rootwait snd_soc_core.prealloc_buffer_size_kbytes=16 coherent_pool=0";
 	};
 
-	/* Simple audio card for HDMI-IN audio over I²S0 (capture only). */
+	/* HDMI-IN audio over I2S0 (capture only) */
 	hdmi_sound: hdmi-sound {
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "tc358743-hdmi";
 		simple-audio-card,format = "i2s";
 
-		/* The HDMI bridge (codec) is the BCLK/LRCLK master. */
+		/* TC358743 provides BCLK/LRCK (codec is master) */
 		simple-audio-card,bitclock-master = <&dai_codec>;
 		simple-audio-card,frame-master    = <&dai_codec>;
-		/* TC358743 usually outputs 256×fs MCLK; harmless if unused. */
+		/* Usually 256 * fs; harmless if unused */
 		simple-audio-card,mclk-fs = <256>;
 
 		simple-audio-card,cpu {
 			sound-dai = <&i2s0_8ch>;
-			/* Let the driver choose natural I²S stereo framing. */
-			/* (No dai-tdm-slot-* here) */
 		};
 
-		/* Wire the codec DAI to the TC358743 bridge itself. */
 		dai_codec: simple-audio-card,codec {
+			/* Use the bridge's own DAI */
 			sound-dai = <&tc358743>;
 		};
 	};
@@ -101,6 +99,7 @@
 			csi_dphy_input0: endpoint@0 {
 				reg = <0>;
 				remote-endpoint = <&hdmiin_out0>;
+				/* DPHY uses lanes 1..2 on the SoC side */
 				data-lanes = <1 2>;
 			};
 		};
@@ -140,7 +139,7 @@
 		rockchip,camera-module-name = "TC358743XBG";
 		rockchip,camera-module-lens-name = "NC";
 
-		/* Expose an ALSA DAI from the bridge. */
+		/* Expose an ALSA DAI from the bridge */
 		#sound-dai-cells = <0>;
 
 		port {
@@ -152,26 +151,23 @@
 			};
 		};
 	};
-
 };
 
 &i2s0_8ch {
 	#sound-dai-cells = <0>;
 	status = "okay";
 
-	/* Use external RX clocks (BCLK/LRCK) from the TC358743. */
-	rockchip,clk-trcm = <1>;            /* 0=TX, 1=RX, 2=TXRX on some BSPs */
-	/* Some BSPs also honor this boolean; harmless if unknown: */
+	/* Use BCLK/LRCK from the bridge (RX clocks) */
+	rockchip,clk-trcm = <1>;
 	rockchip,trcm-sync-rx-only;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2s0m0_sclk_rx &i2s0m0_lrck_rx &i2s0m0_sdi0>;
 
-	/* Do not drive MCLK out; bridge supplies its own clocks.
-	 * Keeping an internal parent/rate can help some BSP math. */
+	/* Keep an internal rate for math; do not drive MCLK out */
 	assigned-clocks = <&cru SCLK_I2S0_8CH>;
 	assigned-clock-parents = <&cru PLL_GPLL>;
-	assigned-clock-rates = <12288000>;   /* 48k * 256 */
+	assigned-clock-rates = <12288000>;
 };
 
 &mipi0_csi2 {
@@ -215,7 +211,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&mipi_pins>;
 	port {
-		/* MIPI CSI-2 endpoint */
 		cif_mipi_in: endpoint {
 			remote-endpoint = <&mipi_csi2_output>;
 		};
@@ -235,26 +230,24 @@
 	status = "okay";
 };
 
-/* ---------------------------------------------------------------------- */
-/* I2S0 RX pin labels (match your board routing).                         */
-/* ---------------------------------------------------------------------- */
+/* Extra I2S0 RX pin labels so the phandles resolve */
 &pinctrl {
-	i2s0 {
+	i2s0_fix: i2s0-fix {
 		/omit-if-no-ref/
 		i2s0m0_sclk_rx: i2s0m0-sclk-rx {
-			rockchip,pins = <2 RK_PA0 2 &pcfg_pull_none>; /* I2S0_SCLK (RX) */
+			rockchip,pins = <2 RK_PA0 2 &pcfg_pull_none>;
 		};
 		/omit-if-no-ref/
 		i2s0m0_lrck_rx: i2s0m0-lrck-rx {
-			rockchip,pins = <2 RK_PA1 2 &pcfg_pull_none>; /* I2S0_LRCK (RX) */
+			rockchip,pins = <2 RK_PA1 2 &pcfg_pull_none>;
 		};
 		/omit-if-no-ref/
 		i2s0m0_sdi0: i2s0m0-sdi0 {
-			rockchip,pins = <2 RK_PA5 2 &pcfg_pull_none>; /* I2S0_SDI0 */
+			rockchip,pins = <2 RK_PA5 2 &pcfg_pull_none>;
 		};
 		/omit-if-no-ref/
 		i2s0m0_mclk: i2s0m0-mclk {
-			rockchip,pins = <2 RK_PA2 2 &pcfg_pull_none>; /* I2S0_MCLK (optional, not requested) */
+			rockchip,pins = <2 RK_PA2 2 &pcfg_pull_none>;
 		};
 	};
 };
